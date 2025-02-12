@@ -9,7 +9,6 @@ contract RentableNFT is ERC721Enumerable, Ownable {
         address renter;
         uint256 expiry;
     }
-
     mapping(uint256 => Rental) public rentals;
     mapping(uint256 => uint256) public rentalPrices;
 
