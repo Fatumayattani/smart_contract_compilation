@@ -9,17 +9,19 @@ contract RentableNFT is ERC721Enumerable, Ownable {
         address renter;
         uint256 expiry;
     }
+
     mapping(uint256 => Rental) public rentals;
     mapping(uint256 => uint256) public rentalPrices;
 
     event NFTListedForRent(uint256 indexed tokenId, uint256 price);
     event NFTRented(uint256 indexed tokenId, address indexed renter, uint256 expiry);
     event NFTUnlisted(uint256 indexed tokenId);
+    event FundsWithdrawn(address owner, uint256 amount);
 
     constructor() ERC721("RentableNFT", "RNFT") {}
 
     function mintNFT(address to, uint256 tokenId) external onlyOwner {
-        _mint(to, tokenId);
+        _safeMint(to, tokenId);
     }
 
     function listForRent(uint256 tokenId, uint256 price) external {
@@ -35,12 +37,16 @@ contract RentableNFT is ERC721Enumerable, Ownable {
         require(rentals[tokenId].expiry < block.timestamp, "NFT is currently rented");
         require(msg.value >= rentalPrices[tokenId], "Insufficient funds");
 
+        // Transfer rental fee to the NFT owner
+        address nftOwner = ownerOf(tokenId);
+        payable(nftOwner).transfer(msg.value);
+
         rentals[tokenId] = Rental({
             renter: msg.sender,
             expiry: block.timestamp + rentalPeriod
         });
 
-        emit NFTRented(tokenId, msg.sender, block.timestamp + rentalPeriod);
+        emit NFTRented(tokenId, msg.sender, rentals[tokenId].expiry);
     }
 
     function unlistFromRent(uint256 tokenId) external {
@@ -58,6 +64,10 @@ contract RentableNFT is ERC721Enumerable, Ownable {
     }
 
     function withdrawFunds() external onlyOwner {
-        payable(owner()).transfer(address(this).balance);
+        uint256 balance = address(this).balance;
+        require(balance > 0, "No funds available");
+
+        payable(owner()).transfer(balance);
+        emit FundsWithdrawn(owner(), balance);
     }
 }
